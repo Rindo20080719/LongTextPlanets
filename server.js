@@ -1,5 +1,9 @@
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
+import Stripe from 'stripe';
+import PaypaySdk from '@paypayopa/paypayopa-sdk-node';
+import QRCode from 'qrcode';
+import { randomUUID } from 'crypto';
 import path from 'path';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -9,6 +13,22 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const client = new Anthropic();
+
+// ==================== 決済SDK初期化 ====================
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+const stripeClient = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+if (process.env.PAYPAY_API_KEY) {
+  PaypaySdk.Configure({
+    clientId:       process.env.PAYPAY_API_KEY,
+    clientSecret:   process.env.PAYPAY_API_SECRET,
+    merchantId:     process.env.PAYPAY_MERCHANT_ID,
+    productionMode: process.env.NODE_ENV === 'production',
+  });
+}
 
 app.use(express.json({ limit: '100mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -155,6 +175,119 @@ app.post('/api/analyze', async (req, res) => {
 
   res.end();
 });
+
+// ==================== Stripe ルート ====================
+
+app.post('/api/checkout/subscribe', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ error: 'カード決済は準備中です' });
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'ログインしてから購入してください' });
+  try {
+    const session = await stripeClient.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      customer_email: email,
+      line_items: [{ price: process.env.STRIPE_SUBSCRIPTION_PRICE_ID, quantity: 1 }],
+      success_url: `${BASE_URL}/?session_id={CHECKOUT_SESSION_ID}&type=subscribe`,
+      cancel_url:  `${BASE_URL}/?canceled=1`,
+      locale: 'ja',
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/checkout/ticket', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ error: 'カード決済は準備中です' });
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'ログインしてから購入してください' });
+  try {
+    const session = await stripeClient.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: email,
+      line_items: [{ price: process.env.STRIPE_TICKET_PRICE_ID, quantity: 1 }],
+      success_url: `${BASE_URL}/?session_id={CHECKOUT_SESSION_ID}&type=ticket`,
+      cancel_url:  `${BASE_URL}/?canceled=1`,
+      locale: 'ja',
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/checkout/verify', async (req, res) => {
+  if (!stripeClient) return res.status(503).json({ error: 'カード決済は準備中です' });
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: 'session_id が必要です' });
+  try {
+    const session = await stripeClient.checkout.sessions.retrieve(session_id);
+    const success = session.payment_status === 'paid' || session.status === 'complete';
+    res.json({
+      success,
+      email: session.customer_email || session.customer_details?.email || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== PayPay ルート ====================
+
+app.post('/api/paypay/create', async (req, res) => {
+  if (!process.env.PAYPAY_API_KEY) return res.status(503).json({ error: 'PayPay決済は準備中です' });
+  const { email, type } = req.body;
+  if (!email) return res.status(400).json({ error: 'ログインしてから購入してください' });
+
+  const merchantPaymentId = randomUUID();
+  const amount = type === 'subscribe' ? 500 : 300;
+  const payload = {
+    merchantPaymentId,
+    amount: { amount, currency: 'JPY' },
+    codeType: 'ORDER_QR',
+    redirectUrl:  `${BASE_URL}/?mpid=${merchantPaymentId}&type=${type}`,
+    redirectType: 'WEB_LINK',
+    orderDescription: type === 'subscribe'
+      ? '長文プラネット スタンダードプラン ¥500/月'
+      : '長文プラネット 回数券 5回分 ¥300',
+    orderItems: [{
+      name:      type === 'subscribe' ? 'スタンダードプラン' : '回数券 5回分',
+      category:  'digital_content',
+      quantity:  1,
+      productId: type,
+      unitPrice: { amount, currency: 'JPY' },
+    }],
+  };
+
+  try {
+    const response = await PaypaySdk.QRCodeCreate(payload);
+    if (response.STATUS !== 201) {
+      return res.status(500).json({ error: 'PayPay QRコードの作成に失敗しました' });
+    }
+    const qrCodeUrl = response.BODY.data.url;
+    const qrImageDataUrl = await QRCode.toDataURL(qrCodeUrl, { width: 220 });
+    res.json({ qrCodeUrl, qrImageDataUrl, merchantPaymentId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/paypay/status', async (req, res) => {
+  if (!process.env.PAYPAY_API_KEY) return res.status(503).json({ error: 'PayPay決済は準備中です' });
+  const { mpid } = req.query;
+  if (!mpid) return res.status(400).json({ error: 'mpid が必要です' });
+  try {
+    const response = await PaypaySdk.GetCodePaymentDetails([mpid]);
+    const status = response.BODY?.data?.status;
+    res.json({ paid: status === 'COMPLETED', status: status || 'UNKNOWN' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== サーバー起動 ====================
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -996,5 +996,229 @@ body {
   opacity: 0.9;
 }
 
+/* ==================== 決済ボタン ==================== */
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+}
+.payment-btn {
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  letter-spacing: 0.02em;
+}
+.payment-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.payment-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.payment-card   { background: linear-gradient(135deg, #4f8ef7 0%, #2563eb 100%); color: #fff; }
+.payment-paypay { background: linear-gradient(135deg, #ff3f3f 0%, #e31212 100%); color: #fff; }
+
+/* ==================== PayPay QRモーダル ==================== */
+.paypay-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.paypay-qr-img {
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.12);
+}
+.paypay-scan-text { font-size: 0.88rem; color: var(--text-muted); margin: 0; }
+.paypay-status {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  animation: pulse-opacity 2s ease-in-out infinite;
+}
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1;   }
+}
+.modal-btn-secondary {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.modal-btn-secondary:hover { background: rgba(255,255,255,0.08); }
+
+/* ==================== Responsive ==================== */
+
+/* dvh フォールバック（モバイルブラウザUIバー対策） */
+body {
+  min-height: 100dvh;
+}
+
+/* ---- スマホ ～640px ---- */
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+
+  /* Header: 1行横並びを維持 */
+  .header { padding: 10px 12px; }
+  .header-inner {
+    flex-wrap: nowrap;   /* 折り返しなし */
+    gap: 8px;
+    align-items: center;
+  }
+  .header-left {
+    flex: 1 1 auto;      /* 余ったスペースを取る */
+    min-width: 0;        /* テキスト truncate に必要 */
+    overflow: hidden;
+  }
+  .title {
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subtitle { display: none; } /* サブタイトルは非表示 */
+
+  /* ボタン群: 縮める・一部を非表示 */
+  .header-actions {
+    flex-shrink: 0;
+    gap: 5px;
+    flex-wrap: nowrap;
+  }
+  /* アカウント登録ボタンはモバイルで非表示（ログインモーダル内から使用可） */
+  #account-btn { display: none !important; }
+
+  .header-action-btn { font-size: 0.7rem; padding: 5px 9px; }
+
+  .logout-btn     { font-size: 0.65rem; padding: 2px 7px; }
+  .user-name-text { max-width: 55px; font-size: 0.72rem; }
+  .music-btn      { width: 34px; height: 34px; font-size: 1rem; }
+
+  /* Main padding */
+  .main { padding: 18px 0 48px; }
+  .input-section,
+  .history-section,
+  .content-warning,
+  .error-box,
+  .viz-header { padding-left: 14px; padding-right: 14px; }
+
+  /* Input card */
+  .input-card { padding: 16px 14px; }
+  .input-textarea { min-height: 130px; font-size: 0.88rem; }
+
+  /* Controls */
+  .controls { gap: 10px; }
+  .summary-toggle { margin-left: 0; width: 100%; justify-content: flex-start; }
+
+  /* Visualization: スクロール可能エリア化 */
+  .visualization {
+    max-height: 56vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Modal: ボトムシート化 */
+  .modal-overlay { padding: 10px; align-items: flex-end; }
+  .modal-card {
+    width: 100%;
+    max-width: none;
+    padding: 24px 18px 20px;
+    border-radius: 18px 18px 12px 12px;
+    max-height: calc(100dvh - 56px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-title { font-size: 1.1rem; margin-bottom: 18px; }
+  .terms-card  { border-radius: 18px 18px 12px 12px; max-height: calc(100dvh - 24px); }
+
+  /* iOS Safari 入力ズーム防止（font-size < 16px でズームが発動する） */
+  .modal-input, .input-textarea { font-size: 16px; }
+
+  /* PayPay QR */
+  .paypay-qr-img { width: 180px; height: 180px; }
+
+  /* History */
+  .history-item { min-width: 140px; max-width: 260px; }
+
+  /* Footer */
+  .footer { padding: 14px 14px; font-size: 0.72rem; }
+}
+
+/* ---- 超小型スマホ ～390px ---- */
+@media (max-width: 390px) {
+  .title { font-size: 0.9rem; }
+  .header-action-btn { font-size: 0.65rem; padding: 4px 7px; }
+  .user-profile-btn  { padding: 3px 8px 3px 4px; }
+  .user-name-text    { display: none; }
+  .settings-gear     { display: none; }
+}
+
+/* ---- スマホ横向き（高さ ≤ 500px） ---- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .header { padding: 7px 14px; }
+  .header-inner { flex-wrap: nowrap; gap: 8px; }
+  .header-left  { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .title    { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .subtitle { display: none; }
+  .header-actions { flex-shrink: 0; gap: 5px; flex-wrap: nowrap; }
+  #account-btn { display: none !important; }
+  .header-action-btn { font-size: 0.68rem; padding: 4px 8px; }
+  .music-btn { width: 32px; height: 32px; font-size: 0.95rem; }
+  .main { padding: 12px 0 28px; }
+
+  /* モーダルを画面内に収める */
+  .modal-overlay { padding: 8px; align-items: center; }
+  .modal-card {
+    padding: 18px 20px 16px;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-title { font-size: 1rem; margin-bottom: 14px; }
+
+  /* ビジュアライゼーション縮小 */
+  .visualization { max-height: 50vh; overflow: auto; }
+  .input-textarea { min-height: 90px; }
+}
+
+/* ---- タブレット 641px ～ 1024px ---- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .header { padding: 20px 20px 16px; }
+  .title  { font-size: 1.55rem; }
+  .header-action-btn { font-size: 0.78rem; padding: 7px 13px; }
+
+  .input-section,
+  .history-section,
+  .viz-header,
+  .content-warning,
+  .error-box { padding-left: 20px; padding-right: 20px; }
+}
+
+/* ---- 大型モニター 1440px ～ ---- */
+@media (min-width: 1440px) {
+  html { font-size: 17px; }
+}
+
+/* ---- 超ワイドモニター (21:9以上) ---- */
+@media (min-aspect-ratio: 21/9) {
+  .header-inner,
+  .input-section,
+  .history-section,
+  .viz-header,
+  .content-warning,
+  .error-box { max-width: 1500px; }
+}
+
 /* ==================== Utility ==================== */
 .hidden { display: none !important; }

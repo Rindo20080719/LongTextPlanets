@@ -296,11 +296,147 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-terms').classList.remove('hidden');
   });
 
-  document.getElementById('ticket-buy-btn').addEventListener('click', () => {
-    addTickets(5);
-    document.getElementById('modal-ticket').classList.add('hidden');
-    alert('✅ 回数券を5枚追加しました！（決済システム準備中）');
-  });
+  // ==================== 決済処理 ====================
+
+  // モーダルを閉じるヘルパー
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+  function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+
+  // 決済後の処理（Stripe・PayPay共通）
+  function handlePaymentSuccess(type, email) {
+    closeModal('modal-paypay');
+    closeModal('modal-subscribe');
+    closeModal('modal-ticket');
+    if (type === 'subscribe') {
+      applyLogin(email || currentUserEmail, true);
+      alert('🎉 サブスクに登録されました！一日10回まで使えます。');
+    } else if (type === 'ticket') {
+      addTickets(5);
+      updateUsageBadge();
+      alert('🎫 回数券5回分が追加されました！');
+    }
+  }
+
+  // ---- Stripe ----
+  async function startStripeCheckout(type) {
+    if (!currentUserEmail) {
+      closeModal(type === 'subscribe' ? 'modal-subscribe' : 'modal-ticket');
+      openModal('modal-login');
+      return;
+    }
+    const btnId = type === 'subscribe' ? 'stripe-subscribe-btn' : 'stripe-ticket-btn';
+    const btn = document.getElementById(btnId);
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '処理中...';
+    try {
+      const endpoint = type === 'subscribe' ? '/api/checkout/subscribe' : '/api/checkout/ticket';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUserEmail }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || '決済ページへの接続に失敗しました');
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    } catch (err) {
+      alert('エラー: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+
+  document.getElementById('stripe-subscribe-btn').addEventListener('click', () => startStripeCheckout('subscribe'));
+  document.getElementById('stripe-ticket-btn').addEventListener('click',    () => startStripeCheckout('ticket'));
+
+  // ---- PayPay ----
+  let payPayPollTimer = null;
+
+  async function startPayPay(type) {
+    if (!currentUserEmail) {
+      closeModal(type === 'subscribe' ? 'modal-subscribe' : 'modal-ticket');
+      openModal('modal-login');
+      return;
+    }
+    const btnId = type === 'subscribe' ? 'paypay-subscribe-btn' : 'paypay-ticket-btn';
+    const btn = document.getElementById(btnId);
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'QR生成中...';
+    try {
+      const res = await fetch('/api/paypay/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUserEmail, type }),
+      });
+      const data = await res.json();
+      if (data.qrImageDataUrl) {
+        closeModal(type === 'subscribe' ? 'modal-subscribe' : 'modal-ticket');
+        document.getElementById('paypay-qr-img').src = data.qrImageDataUrl;
+        document.getElementById('paypay-direct-link').href = data.qrCodeUrl;
+        document.getElementById('paypay-status-msg').textContent = '支払いを待機中...';
+        openModal('modal-paypay');
+        // 3秒ごとに支払い状態をポーリング
+        clearInterval(payPayPollTimer);
+        payPayPollTimer = setInterval(async () => {
+          try {
+            const r = await fetch(`/api/paypay/status?mpid=${data.merchantPaymentId}`);
+            const s = await r.json();
+            if (s.paid) {
+              clearInterval(payPayPollTimer);
+              handlePaymentSuccess(type, currentUserEmail);
+            }
+          } catch { /* ポーリングエラーは無視 */ }
+        }, 3000);
+      } else {
+        alert(data.error || 'PayPay QRコードの取得に失敗しました');
+      }
+    } catch (err) {
+      alert('エラー: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+
+  document.getElementById('paypay-subscribe-btn').addEventListener('click', () => startPayPay('subscribe'));
+  document.getElementById('paypay-ticket-btn').addEventListener('click',    () => startPayPay('ticket'));
+
+  // PayPayモーダルを閉じたらポーリング停止
+  document.querySelector('#modal-paypay .modal-close').addEventListener('click', () => clearInterval(payPayPollTimer));
+
+  // ---- Stripe リダイレクト戻り処理 ----
+  const _params = new URLSearchParams(window.location.search);
+  if (_params.get('canceled')) {
+    window.history.replaceState({}, '', '/');
+  } else if (_params.get('session_id') && _params.get('type')) {
+    const sessionId  = _params.get('session_id');
+    const returnType = _params.get('type');
+    window.history.replaceState({}, '', '/');
+    fetch(`/api/checkout/verify?session_id=${sessionId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) handlePaymentSuccess(returnType, d.email);
+        else alert('決済の確認に失敗しました。サポートにお問い合わせください。');
+      })
+      .catch(() => alert('決済確認中にエラーが発生しました'));
+  } else if (_params.get('mpid') && _params.get('type')) {
+    const mpid       = _params.get('mpid');
+    const returnType = _params.get('type');
+    window.history.replaceState({}, '', '/');
+    fetch(`/api/paypay/status?mpid=${mpid}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.paid) handlePaymentSuccess(returnType, currentUserEmail);
+        else alert('PayPay決済が完了していません。アプリで確認してください。');
+      })
+      .catch(() => alert('PayPay決済確認中にエラーが発生しました'));
+  }
 
   // BGM
   const AUDIOS = {

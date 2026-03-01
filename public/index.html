@@ -243,7 +243,10 @@
           <li>✦ 履歴の無制限保存</li>
           <li>✦ BGMフル解放</li>
         </ul>
-        <button class="modal-btn-primary subscribe-cta">サブスクを始める</button>
+        <div class="payment-methods">
+          <button id="stripe-subscribe-btn" class="payment-btn payment-card">💳 カードで始める</button>
+          <button id="paypay-subscribe-btn" class="payment-btn payment-paypay">🔵 PayPayで始める</button>
+        </div>
         <p class="modal-note">いつでもキャンセル可能</p>
       </div>
     </div>
@@ -267,9 +270,25 @@
             <li>✦ 有効期限なし</li>
             <li>✦ 何枚でも購入可能</li>
           </ul>
-          <button id="ticket-buy-btn" class="modal-btn-primary">¥300 で購入する（5回分）</button>
+          <div class="payment-methods">
+            <button id="stripe-ticket-btn" class="payment-btn payment-card">💳 カードで購入</button>
+            <button id="paypay-ticket-btn" class="payment-btn payment-paypay">🔵 PayPayで購入</button>
+          </div>
         </div>
-        <p class="modal-note">決済システムは準備中です</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PayPay QR モーダル -->
+  <div id="modal-paypay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close" data-modal="modal-paypay">×</button>
+      <h2 class="modal-title">🔵 PayPay で支払う</h2>
+      <div class="modal-body paypay-modal-body">
+        <img id="paypay-qr-img" class="paypay-qr-img" src="" alt="PayPay QRコード">
+        <p class="paypay-scan-text">PayPayアプリでQRコードをスキャン</p>
+        <a id="paypay-direct-link" href="#" target="_blank" rel="noopener" class="modal-btn-secondary">📱 PayPayアプリで開く</a>
+        <p id="paypay-status-msg" class="paypay-status">支払いを待機中...</p>
       </div>
     </div>
   </div>
