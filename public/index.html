@@ -72,38 +72,43 @@
         <div id="history-list" class="history-list"></div>
       </section>
 
-      <!-- ローディング -->
-      <div id="loading" class="loading hidden">
-        <div class="orbit-loader">
-          <div class="orbit-ring"></div>
-          <div class="orbit-planet"></div>
-        </div>
-        <p class="loading-text">AIが長文を分析中...</p>
-        <p class="loading-sub">結論・理由・具体例・まとめを抽出しています</p>
-      </div>
+      <!-- 宇宙エリア（履歴以下） -->
+      <div class="space-zone">
 
-      <!-- コンテンツ警告 -->
-      <div id="content-warning" class="content-warning hidden">
-        <span class="content-warning-icon">⚠️</span>
-        <div>
-          <p class="content-warning-title">直接的すぎる性的表現が含まれています</p>
-          <p class="content-warning-sub">内容を見直してから再度お試しください。利用回数は消費されていません。</p>
+        <!-- ローディング -->
+        <div id="loading" class="loading hidden">
+          <div class="orbit-loader">
+            <div class="orbit-ring"></div>
+            <div class="orbit-planet"></div>
+          </div>
+          <p class="loading-text">AIが長文を分析中...</p>
+          <p class="loading-sub">結論・理由・具体例・まとめを抽出しています</p>
         </div>
-      </div>
 
-      <!-- エラー -->
-      <div id="error-box" class="error-box hidden">
-        <p id="error-msg"></p>
-      </div>
-
-      <!-- 可視化エリア -->
-      <section id="viz-section" class="viz-section hidden">
-        <div class="viz-header">
-          <h2 class="viz-title">🌌 長文プラネット</h2>
-          <p class="viz-hint">← 左右にスクロールして全体を確認できます →</p>
+        <!-- コンテンツ警告 -->
+        <div id="content-warning" class="content-warning hidden">
+          <span class="content-warning-icon">⚠️</span>
+          <div>
+            <p class="content-warning-title">直接的すぎる性的表現が含まれています</p>
+            <p class="content-warning-sub">内容を見直してから再度お試しください。利用回数は消費されていません。</p>
+          </div>
         </div>
-        <div id="visualization" class="visualization"></div>
-      </section>
+
+        <!-- エラー -->
+        <div id="error-box" class="error-box hidden">
+          <p id="error-msg"></p>
+        </div>
+
+        <!-- 可視化エリア -->
+        <section id="viz-section" class="viz-section hidden">
+          <div class="viz-header">
+            <h2 class="viz-title">🌌 長文プラネット</h2>
+            <p class="viz-hint">← 左右にスクロールして全体を確認できます →</p>
+          </div>
+          <div id="visualization" class="visualization"></div>
+        </section>
+
+      </div><!-- /.space-zone -->
     </main>
     <footer class="footer">
       <a href="#" id="terms-link" class="footer-link">利用規約</a>

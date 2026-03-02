@@ -126,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('analyze-btn').addEventListener('click', analyze);
   document.getElementById('history-clear').addEventListener('click', clearHistory);
   renderHistory();
+  initSpaceBg();
 
   // ログイン処理
   const ACCOUNTS = [
@@ -554,7 +555,7 @@ async function analyze() {
 
   showLoading(true);
   hideError();
-  document.getElementById('viz-section').classList.add('hidden');
+  initSpaceBg();
 
   try {
     const resp = await fetch('/api/analyze', {
@@ -803,6 +804,39 @@ function makeShootingStars(svg, defs, totalW) {
   });
 }
 
+/* ==================== Space Background (always visible) ==================== */
+function initSpaceBg() {
+  const container = document.getElementById('visualization');
+  container.innerHTML = '';
+  document.getElementById('viz-section').classList.remove('hidden');
+  document.querySelector('#viz-section .viz-header').classList.add('hidden');
+
+  const W = 1600, H = 400;
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, xmlns: NS });
+  svg.style.display = 'block';
+
+  const defs = el('defs');
+  const bgGrad = el('linearGradient', { id: 'grad-bg', x1: '0%', y1: '0%', x2: '100%', y2: '100%' });
+  addStop(bgGrad, '0%', '#04060f');
+  addStop(bgGrad, '100%', '#080d1e');
+  defs.appendChild(bgGrad);
+  svg.appendChild(defs);
+
+  const nebulaFilter = el('filter', { id: 'nebula-blur' });
+  nebulaFilter.appendChild(el('feGaussianBlur', { stdDeviation: '40' }));
+  defs.appendChild(nebulaFilter);
+  [
+    { cx: W * 0.15, cy: H * 0.5, rx: 180, ry: 90, fill: 'rgba(50,0,120,0.25)' },
+    { cx: W * 0.5,  cy: H * 0.5, rx: 150, ry: 75, fill: 'rgba(0,60,120,0.2)' },
+    { cx: W * 0.82, cy: H * 0.5, rx: 120, ry: 60, fill: 'rgba(80,0,100,0.2)' },
+  ].forEach(({ cx, cy, rx, ry, fill }) => {
+    svg.appendChild(el('ellipse', { cx, cy, rx, ry, fill, filter: 'url(#nebula-blur)' }));
+  });
+
+  makeShootingStars(svg, defs, W);
+  container.appendChild(svg);
+}
+
 /* ==================== Draw Sun ==================== */
 function drawSun(parent, cx, cy, r, summary) {
   // Glow halo (pulsing)
@@ -825,7 +859,7 @@ function drawSun(parent, cx, cy, r, summary) {
   const lbl = el('text', {
     x: cx, y: cy - r + 20,
     'text-anchor': 'middle',
-    fill: 'rgba(255,255,255,0.95)',
+    fill: 'rgba(60,25,0,0.9)',
     'font-size': '13',
     'font-weight': '700',
     'font-family': "'Noto Sans JP',sans-serif",
@@ -846,7 +880,7 @@ function drawSun(parent, cx, cy, r, summary) {
     width:${foW}px;height:${foH}px;
     display:flex;align-items:center;justify-content:center;
     text-align:center;
-    color:rgba(255,255,255,0.92);
+    color:rgba(60,25,0,0.88);
     font-size:13px;line-height:1.55;
     font-family:'Noto Sans JP',sans-serif;
     word-break:break-all;overflow:hidden;
@@ -1087,6 +1121,7 @@ function render(data) {
   const container = document.getElementById('visualization');
   container.innerHTML = '';
   document.getElementById('viz-section').classList.remove('hidden');
+  document.querySelector('#viz-section .viz-header').classList.remove('hidden');
 
   const planets = data.planets || [];
   const N = planets.length;
@@ -1152,9 +1187,6 @@ function render(data) {
 
   svg.appendChild(defs);
 
-  /* ---- Background ---- */
-  svg.appendChild(el('rect', { width: totalW, height: totalH, fill: 'url(#grad-bg)' }));
-
   /* ---- Nebula blobs ---- */
   const nebulaFilter = el('filter', { id: 'nebula-blur' });
   nebulaFilter.appendChild(el('feGaussianBlur', { stdDeviation: '40' }));
@@ -1168,11 +1200,6 @@ function render(data) {
     svg.appendChild(el('ellipse', { cx, cy, rx, ry, fill, filter: 'url(#nebula-blur)' }));
   });
 
-  /* ---- Stars ---- */
-  makeStars(svg, totalW, totalH);
-
-  /* ---- Shooting stars ---- */
-  makeShootingStars(svg, defs, totalW);
 
   /* ---- Arrows layer (drawn first so planets appear on top) ---- */
   const arrowLayer = el('g', { id: 'arrow-layer' });
@@ -1266,6 +1293,28 @@ function render(data) {
   });
 
   container.appendChild(svg);
+
+  // 流れ星オーバーレイ：スクロールしない固定レイヤー（初回のみ生成）
+  if (!document.getElementById('shoot-overlay')) {
+    const shootSvg = el('svg', { id: 'shoot-overlay', xmlns: NS });
+    shootSvg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;z-index:0;';
+    const overlayDefs = el('defs');
+    makeShootingStars(shootSvg, overlayDefs, 0);
+    shootSvg.prepend(overlayDefs);
+    const vizSection = document.getElementById('viz-section');
+    vizSection.insertBefore(shootSvg, document.getElementById('visualization'));
+  }
+
+  // 画面内に収まるなら中央揃え、はみ出るならスクロール
+  if (totalW <= container.offsetWidth) {
+    container.style.display        = 'flex';
+    container.style.justifyContent = 'center';
+    container.style.cursor         = 'default';
+  } else {
+    container.style.display        = '';
+    container.style.justifyContent = '';
+    container.style.cursor         = '';
+  }
 }
 
 /* ==================== Subscription State ==================== */
@@ -1338,7 +1387,7 @@ function renderHistory() {
       currentData = entry.data;
       render(currentData);
       document.getElementById('viz-section').classList.remove('hidden');
-      window.scrollTo({ top: document.getElementById('viz-section').offsetTop - 80, behavior: 'smooth' });
+      window.playSfx(entry.data.sentiment || 'neutral');
     });
     if (isSubscribed && entry.inputText) {
       item.querySelector('.history-reedit-btn').addEventListener('click', e => {
@@ -1356,3 +1405,46 @@ function renderHistory() {
     list.appendChild(item);
   });
 }
+
+/* ==================== Border Wave ==================== */
+function spawnBorderWaves(element, colorClass) {
+  const rect = element.getBoundingClientRect();
+  const radius = parseFloat(window.getComputedStyle(element).borderRadius) || 12;
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  const count = 2;
+  for (let i = 0; i < count; i++) {
+    const ring = document.createElement('div');
+    ring.className = 'border-wave-ring' + (colorClass ? ' ' + colorClass : '');
+    ring.style.cssText = `
+      top: ${rect.top + scrollY}px;
+      left: ${rect.left + scrollX}px;
+      width: ${rect.width}px;
+      height: ${rect.height}px;
+      border-radius: ${radius}px;
+      animation-delay: ${i * 0.18}s;
+    `;
+    document.body.appendChild(ring);
+    ring.addEventListener('animationend', () => ring.remove(), { once: true });
+  }
+}
+
+// テキストエリアにフォーカスしたとき → 入力カードの枠から波
+document.getElementById('input-text').addEventListener('focus', () => {
+  spawnBorderWaves(document.querySelector('.input-card'));
+});
+
+// テキスト入力中（3秒ごとに1回）→ 入力カードの枠から波
+let _lastBorderWave = 0;
+document.getElementById('input-text').addEventListener('input', () => {
+  const now = Date.now();
+  if (now - _lastBorderWave < 3000) return;
+  _lastBorderWave = now;
+  spawnBorderWaves(document.querySelector('.input-card'));
+});
+
+// 履歴アイテムをクリック → そのアイテムの枠から波
+document.getElementById('history-section').addEventListener('click', e => {
+  const item = e.target.closest('.history-item');
+  if (item) spawnBorderWaves(item, 'teal');
+});
