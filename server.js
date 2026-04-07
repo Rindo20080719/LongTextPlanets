@@ -168,11 +168,9 @@ app.post('/api/auth/avatar', requireAuth, uploadAvatar.single('avatar'), async (
     const ext      = imageExt(req.file.mimetype);
     const filename = `user_${req.session.userId}${ext}`;
 
-    // 既存アバターを削除（拡張子違いも全部）
     const exts = ['.jpg', '.png', '.gif', '.webp'];
     await db.supabase.storage.from('avatars').remove(exts.map(e => `user_${req.session.userId}${e}`));
 
-    // 新しいアバターをアップロード
     const { error } = await db.supabase.storage.from('avatars').upload(filename, req.file.buffer, {
       contentType: req.file.mimetype,
       upsert: true,
@@ -270,7 +268,6 @@ app.post('/api/rankings', upload.single('audio'), async (req, res) => {
       audio_mimetype: audioMimetype,
     });
 
-    // ログイン中なら個人履歴にも保存
     if (req.session.userId) {
       const season = await db.getSeasonInfo();
       await db.addUserRecord({
@@ -284,14 +281,12 @@ app.post('/api/rankings', upload.single('audio'), async (req, res) => {
       });
     }
 
-    // 登録後の順位を計算
     const all  = await db.getRankings(1000);
     const rank = all.findIndex(r => r.id === item.id) + 1;
 
     res.json({ success: true, id: item.id, rank });
   } catch (err) {
     console.error(err);
-    // アップロード済み音声があれば削除
     if (audioFilename) {
       await db.supabase.storage.from('audio').remove([audioFilename]).catch(() => {});
     }
@@ -310,7 +305,6 @@ app.delete('/api/rankings/:id', requireAuth, async (req, res) => {
     if (ranking.user_id !== req.session.userId)
       return res.status(403).json({ error: '自分の記録のみ削除できます' });
 
-    // 音声ファイルも削除
     if (ranking.audio_filename) {
       await db.supabase.storage.from('audio').remove([ranking.audio_filename]).catch(() => {});
       await db.clearAudioFromHistory(ranking.audio_filename);
@@ -358,9 +352,11 @@ async function checkAndResetSeason() {
   }
 }
 
-// 起動時チェック + 1時間ごとにチェック
-checkAndResetSeason().catch(console.error);
-setInterval(() => checkAndResetSeason().catch(console.error), 60 * 60 * 1000);
+// ローカル・Railway環境のみ定期チェック
+if (require.main === module) {
+  checkAndResetSeason().catch(console.error);
+  setInterval(() => checkAndResetSeason().catch(console.error), 60 * 60 * 1000);
+}
 
 // シーズン情報取得
 app.get('/api/season', async (req, res) => {
@@ -395,7 +391,11 @@ app.get('/api/users/me/history', requireAuth, async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🏟️  発狂ーぃ のこった！ サーバー起動`);
-  console.log(`   http://localhost:${PORT}\n`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\n🏟️  発狂ーぃ のこった！ サーバー起動`);
+    console.log(`   http://localhost:${PORT}\n`);
+  });
+}
+
+module.exports = app;
